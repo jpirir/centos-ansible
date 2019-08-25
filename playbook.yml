@@ -1,0 +1,111 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: download nodejs
+    shell:  curl -sL https://rpm.nodesource.com/setup_10.x | sudo bash -
+  
+  - name: install the nginx rpm from a remote repo
+    yum:
+      name: http://nginx.org/packages/centos/7/noarch/RPMS/nginx-release-centos-7-0.el7.ngx.noarch.rpm
+      state: present
+
+  - name: install mysql from remote repo
+    yum:
+      name: https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+      state: present
+
+
+  - name: Install a list of packages
+    yum:
+      name:
+        - epel-release
+        - yum-utils 
+        - device-mapper-persistent-data 
+        - lvm2
+        - java-1.8.0-openjdk
+        - java-1.8.0-openjdk-devel
+        - nodejs
+        - git
+        - maven
+        - nginx
+        - openssl
+      state: present
+  
+  - name: install angular
+    shell: npm install -g @angular/cli
+  
+  - name: add docker repo
+    shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: Install docker 
+    yum:
+      name:
+        - docker-ce 
+        - docker-ce-cli 
+        - containerd.io
+      state: present
+
+  #nginx ssl 
+
+  - name: install pip
+    yum:
+      name: python-pip
+    state: present
+
+  - name: nginx as a service
+    shell: systemctl enable nginx
+
+  - name: install pip
+    shell: pip install pyopenssl
+
+  - name: Create directory
+    file:
+      path: /etc/ssl/private
+      state: directory
+      mode: 0755
+
+  - name: Generate an OpenSSL private key
+    openssl_privatekey:
+      path: /etc/ssl/private/developer.px.pem
+ 
+  - name: Create directory
+    file:
+      path: /etc/ssl/csr
+      state: directory
+      mode: 0755
+ 
+  - name: Generate an OpenSSL Certificate Signing Request
+    openssl_csr:
+      path: /etc/ssl/csr/www.developer.px.csr
+      privatekey_path: /etc/ssl/private/developer.px.pem
+      country_name: IN
+      organization_name: jiro
+      email_address: jiro@developer.px
+      common_name: www.developer.px
+  
+  - name: Generate a self signed certificate
+    openssl_certificate:
+      path: /etc/ssl/certs/nginx-selfsigned.crt
+      privatekey_path: /etc/ssl/private/developer.px.pem
+      csr_path: /etc/ssl/csr/www.developer.px.csr
+      provider: selfsigned
+
+  - name: copy app file to host
+    copy:
+      src: nginx/dev.conf
+      dest: /etc/nginx/conf.d/dev.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: start nginx
+    shell: systemctl start nginx
+
+  - name: timezone
+    file: src=/usr/share/zoneinfo/America/Guatemala dest=/etc/localtime state=link force=yes backup=yes
+
+  - name: install htop
+    yum:
+      name: htop
+    state: present
