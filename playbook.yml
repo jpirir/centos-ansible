@@ -51,7 +51,7 @@
   - name: install pip
     yum:
       name: python-pip
-    state: present
+      state: present
 
   - name: nginx as a service
     shell: systemctl enable nginx
@@ -108,4 +108,4 @@
   - name: install htop
     yum:
       name: htop
-    state: present
+      state: present
