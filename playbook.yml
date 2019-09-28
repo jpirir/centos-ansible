@@ -1,7 +1,15 @@
 ---
 - hosts: all
   become: true
+  vars_files:
+  - ansible/vars/all.yml
+
+  handlers:
+  - name: restart mysql
+    service: name=mysql enabled=yes state=restarted
+
   tasks:
+
   - name: download nodejs
     shell:  curl -sL https://rpm.nodesource.com/setup_10.x | sudo bash -
   
@@ -30,6 +38,10 @@
         - maven
         - nginx
         - openssl
+        - vim
+        #- mysql-community-server.x86_64 
+        - mysql-server
+        - MySQL-python
       state: present
   
   - name: install angular
@@ -102,10 +114,39 @@
   - name: start nginx
     shell: systemctl start nginx
 
-  - name: timezone
-    file: src=/usr/share/zoneinfo/America/Guatemala dest=/etc/localtime state=link force=yes backup=yes
+  - name: More Configure the timezone
+    become: yes
+    file: src=/usr/share/zoneinfo/{{server.timezone}} dest=/etc/localtime state=link force=yes backup=yes
+
+  - name: Set default system language pack
+    shell: localectl set-locale LANG={{server.locale}}
+    become: yes
 
   - name: install htop
     yum:
       name: htop
       state: present
+
+  - name: copy my.cnf
+    template:
+      src: ansible/templates/my.cnf.j2
+      dest: /etc/my.cnf
+      mode: 0644
+    notify: restart mysql
+
+  - name: get root password
+    shell: "grep 'A temporary password is generated for root@localhost' /var/log/mysqld.log | awk -F ' ' '{print $(NF)}'"
+    register: root_password
+
+  - name: update expired root user password
+    command: mysql --user root --password={{ root_password.stdout }} --connect-expired-password --execute="ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql.root_password }}';"
+
+  - name: create mysql client user
+    mysql_user:
+      login_user: root
+      login_password: "{{ mysql.root_password }}"
+      name: "{{ mysql.user }}"
+      password: "{{ mysql.password }}"
+      priv: '*.*:ALL,GRANT'
+      state: present
+      host: '%'
