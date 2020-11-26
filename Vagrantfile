@@ -5,7 +5,12 @@ Vagrant.require_version ">= 1.7.0"
 
 Vagrant.configure(2) do |config|
 
-  config.vm.box = "centos/7"
+  config.vm.box = "bento/centos-7.4"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "6144"
+    vb.cpus = 2
+  end
 
   # Disable the new default behavior introduced in Vagrant 1.7, to
   # ensure that all Vagrant machines will use the same SSH key pair.
